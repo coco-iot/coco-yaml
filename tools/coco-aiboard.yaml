@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coco-aiboard
+  namespace: kube-system
+  annotations:
+    k8s.coco.com/displayName: coco-aiboard
+    k8s.coco.com/ingress: "true"
+    k8s.coco.com/service: NodePort
+    k8s.coco.com/workload: coco-aiboard
+  labels:
+    k8s.coco.com/layer: monitor
+    k8s.coco.com/name: coco-aiboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s.coco.com/layer: monitor
+      k8s.coco.com/name: coco-aiboard
+  template:
+    metadata:
+      labels:
+        k8s.coco.com/layer: monitor
+        k8s.coco.com/name: coco-aiboard
+    spec:
+      containers:
+      - name: coco-aiboard
+        image: hub.coco.com:8002/ai/coco-aiboard:latest
+        imagePullPolicy: Always
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coco-aiboard
+  namespace: kube-system
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    nodePort: 32566
+  selector:
+    k8s.coco.com/layer: monitor
+    k8s.coco.com/name: coco-aiboard
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coco-aiboard-user
+  namespace: kube-system
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: coco-aiboard-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: coco-aiboard-user
+  namespace: kube-system
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coco-aiboard-viewer
+  namespace: kube-system
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: coco-aiboard-viewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+- kind: ServiceAccount
+  name: coco-aiboard-viewer
+  namespace: kube-system
+
+# ---
+# apiVersion: extensions/v1beta1
+# kind: Ingress
+# metadata:
+#   name: coco-aiboard
+#   namespace: kube-system
+#   annotations:
+#     k8s.coco.com/displayName: coco-aiboard
+#     k8s.coco.com/workload: coco-aiboard
+#     nginx.org/websocket-services: "coco-aiboard"
+#     nginx.com/sticky-cookie-services: "serviceName=coco-aiboard srv_id expires=1h path=/"
+# spec:
+#   rules:
+#   - host: coco-aiboard.yourdomain.com
+#     http:
+#       paths:
+#       - path: /
+#         backend:
+#           serviceName: coco-aiboard
+#           servicePort: http
